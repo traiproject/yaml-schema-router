@@ -53,27 +53,3 @@ type VersionedTextDocumentIdentifier struct {
 type TextDocumentContentChangeEvent struct {
 	Text string `json:"text"`
 }
-
-// --- Outbound to Server (Schema Injection) ---
-
-// DidChangeConfigurationNotification represents an outgoing workspace/didChangeConfiguration message.
-type DidChangeConfigurationNotification struct {
-	JSONRPC string                       `json:"jsonrpc"`
-	Method  string                       `json:"method"`
-	Params  DidChangeConfigurationParams `json:"params"`
-}
-
-// DidChangeConfigurationParams holds the configuration update payload for the server.
-type DidChangeConfigurationParams struct {
-	Settings Settings `json:"settings"`
-}
-
-// Settings wraps the general configuration settings sent to the language server.
-type Settings struct {
-	YAML YAMLSound `json:"yaml"`
-}
-
-// YAMLSound contains YAML-specific settings, specifically the dynamic schema mappings.
-type YAMLSound struct {
-	Schemas map[string][]string `json:"schemas"`
-}

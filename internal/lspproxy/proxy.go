@@ -168,7 +168,7 @@ func (p *Proxy) processEditorToServer() {
 
 		// Intercept Helix's responses to `workspace/configuration`
 		if msg.ID != nil && len(msg.Result) > 0 {
-			payload = p.interceptWorkspaceConfiguration(msg, payload)
+			payload = p.interceptWorkspaceConfiguration(&msg, payload)
 		}
 
 		p.forwardToServer(payload)
@@ -209,7 +209,7 @@ func (p *Proxy) processServerToEditor() {
 
 // interceptWorkspaceConfiguration dynamically injects schema configurations
 // into the editor's response to the language server.
-func (p *Proxy) interceptWorkspaceConfiguration(msg BaseRPC, payload []byte) []byte {
+func (p *Proxy) interceptWorkspaceConfiguration(msg *BaseRPC, payload []byte) []byte {
 	var result []any
 	if err := json.Unmarshal(msg.Result, &result); err != nil || len(result) == 0 {
 		return payload
@@ -265,33 +265,11 @@ func (p *Proxy) forwardToServer(payload []byte) {
 	}
 }
 
-func (p *Proxy) injectSchemaConfiguration() {
-	p.stateMutex.RLock()
-	// yaml-language-server expects: "schema-url": ["uri1", "uri2"]
-	groupedSchemas := make(map[string][]string)
-	for uri, schemaURL := range p.schemaState {
-		groupedSchemas[schemaURL] = append(groupedSchemas[schemaURL], uri)
-	}
-	p.stateMutex.RUnlock()
-
-	notification := DidChangeConfigurationNotification{
-		JSONRPC: "2.0",
-		Method:  "workspace/didChangeConfiguration",
-		Params: DidChangeConfigurationParams{
-			Settings: Settings{
-				YAML: YAMLSound{
-					Schemas: groupedSchemas,
-				},
-			},
-		},
-	}
-
-	payload, err := json.Marshal(notification)
-	if err != nil {
-		log.Printf("Failed to marshal config notification: %v", err)
-		return
-	}
-
+// triggerConfigurationPull sends an empty didChangeConfiguration notification
+// to force the yaml-language-server to request a configuration pull.
+func (p *Proxy) triggerConfigurationPull() {
+	// A barebones payload is enough to trigger the pullConfiguration() flow
+	payload := []byte(`{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{}}}`)
 	p.forwardToServer(payload)
 }
 
@@ -314,7 +292,7 @@ func (p *Proxy) handleDidOpen(payload []byte) {
 	p.schemaState[uri] = schemaURL
 	p.stateMutex.Unlock()
 
-	p.injectSchemaConfiguration()
+	p.triggerConfigurationPull()
 }
 
 func (p *Proxy) handleDidChange(payload []byte) {
@@ -337,11 +315,12 @@ func (p *Proxy) handleDidChange(payload []byte) {
 	}
 
 	p.stateMutex.Lock()
-	// Only inject if the schema actually changed
+	// Only trigger a configuration pull if the schema actually changed
 	if p.schemaState[uri] != schemaURL {
 		p.schemaState[uri] = schemaURL
 		p.stateMutex.Unlock()
-		p.injectSchemaConfiguration()
+
+		p.triggerConfigurationPull()
 	} else {
 		p.stateMutex.Unlock()
 	}
