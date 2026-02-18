@@ -3,6 +3,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"go.trai.ch/yaml-schema-router/internal/detector"
 	"go.trai.ch/yaml-schema-router/internal/detector/kubernetes"
 	"go.trai.ch/yaml-schema-router/internal/lspproxy"
+	"go.trai.ch/yaml-schema-router/internal/schemaregistry"
 )
 
 func main() {
@@ -21,8 +23,8 @@ func main() {
 
 func run() error {
 	defaultLogPath := ""
-	homeDir, err := os.UserHomeDir()
-	if err == nil {
+	homeDir, homeErr := os.UserHomeDir()
+	if homeErr == nil {
 		defaultLogPath = filepath.Join(homeDir, ".config", config.DefaultConfigDirName, "router.log")
 	} else {
 		defaultLogPath = filepath.Join(os.TempDir(), "yaml-schema-router.log")
@@ -67,8 +69,13 @@ func run() error {
 
 	log.Printf("Starting yaml-schema-router. Using LSP executable: %s", *lspPath)
 
-	k8sDetector := &kubernetes.K8sDetector{}
-	crdDetector := &kubernetes.CRDDetector{}
+	registry, err := schemaregistry.NewRegistry()
+	if err != nil {
+		return fmt.Errorf("failed to initialize schema registry: %v", err)
+	}
+
+	k8sDetector := &kubernetes.K8sDetector{Registry: registry}
+	crdDetector := &kubernetes.CRDDetector{Registry: registry}
 	chain := detector.NewChain(k8sDetector, crdDetector)
 
 	proxy := lspproxy.NewProxy(*lspPath, chain)

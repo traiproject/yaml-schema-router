@@ -4,24 +4,31 @@ package kubernetes
 import (
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"go.trai.ch/yaml-schema-router/internal/config"
 	"go.trai.ch/yaml-schema-router/internal/detector"
+	"go.trai.ch/yaml-schema-router/internal/schemaregistry"
 )
 
 // K8sDetector implements the detector.Detector interface for Kubernetes manifests.
-type K8sDetector struct{}
+type K8sDetector struct {
+	Registry *schemaregistry.Registry
+}
 
 var _ detector.Detector = (*K8sDetector)(nil)
 
+// K8sDetectorName is the unique identifier for the built-in Kubernetes detector.
+const K8sDetectorName = "kubernetes-builtin"
+
 // Name returns the unique string identifier for the Kubernetes detector.
 func (d *K8sDetector) Name() string {
-	return "kubernetes-builtin"
+	return K8sDetectorName
 }
 
 // Detect inspects the YAML content for its Kubernetes apiVersion and kind to construct the appropriate schema URL.
-func (d *K8sDetector) Detect(_ string, content []byte) (schemaURL string, detected bool, err error) {
+func (d *K8sDetector) Detect(_ string, content []byte) (remoteSchemaURL string, detected bool, err error) {
 	apiVersion, kind := extractTypeMeta(content)
 
 	if apiVersion == "" || kind == "" {
@@ -53,7 +60,7 @@ func (d *K8sDetector) Detect(_ string, content []byte) (schemaURL string, detect
 
 	versionDir := fmt.Sprintf("%s%s", config.DefaultK8sSchemaVersion, config.DefaultK8sSchemaFlavour)
 
-	schemaURL, err = url.JoinPath(
+	remoteSchemaURL, err = url.JoinPath(
 		config.DefaultK8sSchemaRegistry,
 		versionDir,
 		fileName,
@@ -62,7 +69,12 @@ func (d *K8sDetector) Detect(_ string, content []byte) (schemaURL string, detect
 		return "", false, err
 	}
 
-	return schemaURL, true, nil
+	cachePath := filepath.Join(d.Name(), versionDir, fileName)
+	localURI, err := d.Registry.GetSchemaURI(remoteSchemaURL, cachePath)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to fetch schema: %w", err)
+	}
+	return localURI, true, nil
 }
 
 // extractTypeMeta scans the raw YAML content to quickly find the top-level

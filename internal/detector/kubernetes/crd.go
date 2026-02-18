@@ -10,6 +10,7 @@ import (
 
 	"go.trai.ch/yaml-schema-router/internal/config"
 	"go.trai.ch/yaml-schema-router/internal/detector"
+	"go.trai.ch/yaml-schema-router/internal/schemaregistry"
 )
 
 type schemaRef struct {
@@ -29,13 +30,18 @@ type schemaWrapper struct {
 }
 
 // CRDDetector implements the detector.Detector interface for Kubernetes CRDs.
-type CRDDetector struct{}
+type CRDDetector struct {
+	Registry *schemaregistry.Registry
+}
 
 var _ detector.Detector = (*CRDDetector)(nil)
 
+// CRDDetectorName is the unique identifier for the built-in Kubernetes detector.
+const CRDDetectorName = "kubernetes-crd"
+
 // Name returns the unique string identifier for the CRD detector.
 func (d *CRDDetector) Name() string {
-	return "kubernetes-crd"
+	return CRDDetectorName
 }
 
 // Detect inspects the YAML content for an apiVersion containing a custom group
@@ -54,28 +60,20 @@ func (d *CRDDetector) Detect(_ string, content []byte) (schemaURL string, detect
 
 	kindFormatted := strings.ToLower(kind)
 	fileName := fmt.Sprintf("%s_%s.json", kindFormatted, version)
+	wrapperCachePath := filepath.Join(CRDDetectorName, group, fmt.Sprintf("%s_%s_wrapper.json", kindFormatted, version))
 
-	// Get the base CRD schema URL
-	baseCRDURL, err := url.JoinPath(
-		config.DefaultCRDSchemaRegistry,
-		group,
-		fileName,
-	)
+	// Fast path: if the wrapper already exists, we don't need to do anything
+	if _, statErr := os.Stat(d.Registry.GetLocalPath(wrapperCachePath)); statErr == nil {
+		return d.Registry.GetLocalFileURI(wrapperCachePath), true, nil
+	}
+
+	localBaseCRDURI, localObjectMetaURI, err := d.fetchDependencies(group, fileName)
 	if err != nil {
 		return "", false, err
 	}
 
-	// Get the standard k8s ObjectMeta schema URL
-	objectMetaURL, err := url.JoinPath(
-		config.DefaultK8sSchemaRegistry,
-		fmt.Sprintf("%s%s", config.DefaultK8sSchemaVersion, config.DefaultK8sSchemaFlavour),
-		"objectmeta-meta-v1.json",
-	)
-	if err != nil {
-		return "", false, err
-	}
-
-	fileURI, err := generateWrapperSchema(baseCRDURL, objectMetaURL, group, version, kindFormatted)
+	// Generate and save the wrapper schema
+	fileURI, err := d.generateAndSaveWrapper(localBaseCRDURI, localObjectMetaURI, wrapperCachePath)
 	if err != nil {
 		return "", false, err
 	}
@@ -83,15 +81,49 @@ func (d *CRDDetector) Detect(_ string, content []byte) (schemaURL string, detect
 	return fileURI, true, nil
 }
 
-// generateWrapperSchema builds the CRD wrapper and writes it to a temporary file.
-func generateWrapperSchema(baseCRDURL, objectMetaURL, group, version, kindFormatted string) (string, error) {
-	// Construct the wrapper schema using typed structs
+func (d *CRDDetector) fetchDependencies(
+	group, fileName string,
+) (localBaseCRDURI, localObjectMetaURI string, err error) {
+	// Get base CRD remote URL & fetch local URI
+	baseCRDURL, err := url.JoinPath(
+		config.DefaultCRDSchemaRegistry,
+		group,
+		fileName,
+	)
+	if err != nil {
+		return "", "", err
+	}
+	baseCRDCachePath := filepath.Join(d.Name(), group, fileName)
+	localBaseCRDURI, err = d.Registry.GetSchemaURI(baseCRDURL, baseCRDCachePath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to fetch base CRD schema: %w", err)
+	}
+
+	// Get ObjectMeta remote URL & fetch local URI
+	versionDir := fmt.Sprintf("%s%s", config.DefaultK8sSchemaVersion, config.DefaultK8sSchemaFlavour)
+	objectMetaURL, err := url.JoinPath(config.DefaultK8sSchemaRegistry, versionDir, config.DefaultK8sMetaSchemaFileName)
+	if err != nil {
+		return "", "", err
+	}
+	metaCachePath := filepath.Join(K8sDetectorName, versionDir, config.DefaultK8sMetaSchemaFileName)
+	localObjectMetaURI, err = d.Registry.GetSchemaURI(objectMetaURL, metaCachePath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to fetch ObjectMeta schema: %w", err)
+	}
+
+	return localBaseCRDURI, localObjectMetaURI, nil
+}
+
+// generateAndSaveWrapper builds the CRD wrapper and saves it to the persistent cache.
+func (d *CRDDetector) generateAndSaveWrapper(
+	localBaseCRDURI, localObjectMetaURI, wrapperCachePath string,
+) (string, error) {
 	wrapper := schemaWrapper{
 		AllOf: []any{
-			schemaRef{Ref: baseCRDURL},
+			schemaRef{Ref: localBaseCRDURI},
 			schemaExtension{
 				Properties: schemaProperties{
-					Metadata: schemaRef{Ref: objectMetaURL},
+					Metadata: schemaRef{Ref: localObjectMetaURI},
 				},
 			},
 		},
@@ -102,19 +134,10 @@ func generateWrapperSchema(baseCRDURL, objectMetaURL, group, version, kindFormat
 		return "", err
 	}
 
-	// Write the generated schema to a temporary file
-	tempDir := filepath.Join(os.TempDir(), "yaml-schema-router-crds")
-	if err := os.MkdirAll(tempDir, config.DefaultDirPerm); err != nil {
+	// Write the generated schema to the persistent cache directory
+	if err := d.Registry.SaveLocalSchema(wrapperCachePath, wrapperBytes); err != nil {
 		return "", err
 	}
 
-	wrapperFileName := fmt.Sprintf("%s-%s-%s-wrapper.json", group, version, kindFormatted)
-	wrapperFilePath := filepath.Join(tempDir, wrapperFileName)
-
-	if err := os.WriteFile(wrapperFilePath, wrapperBytes, config.DefaultFilePerm); err != nil {
-		return "", err
-	}
-
-	// Return the local file URI to the LSP
-	return fmt.Sprintf("file://%s", wrapperFilePath), nil
+	return d.Registry.GetLocalFileURI(wrapperCachePath), nil
 }

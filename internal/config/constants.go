@@ -4,6 +4,7 @@ package config
 
 import (
 	"os"
+	"time"
 )
 
 const (
@@ -27,4 +28,10 @@ const (
 
 	// DefaultCRDSchemaRegistry is the url to fetch crd schmas from.
 	DefaultCRDSchemaRegistry = "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main"
+
+	// DefaultK8sMetaSchemaFileName is the filename of the Kubernetes ObjectMeta schema.
+	DefaultK8sMetaSchemaFileName = "objectmeta-meta-v1.json"
+
+	// DefaultDownloaderTimeout is the maximum duration allowed for schema downloads.
+	DefaultDownloaderTimeout = 2 * time.Second
 )
