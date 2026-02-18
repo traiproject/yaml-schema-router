@@ -68,7 +68,8 @@ func run() error {
 	log.Printf("Starting yaml-schema-router. Using LSP executable: %s", *lspPath)
 
 	k8sDetector := &kubernetes.K8sDetector{}
-	chain := detector.NewChain(k8sDetector)
+	crdDetector := &kubernetes.CRDDetector{}
+	chain := detector.NewChain(k8sDetector, crdDetector)
 
 	proxy := lspproxy.NewProxy(*lspPath, chain)
 

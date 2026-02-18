@@ -24,4 +24,7 @@ const (
 
 	// DefaultK8sSchemaFlavour is the "-standalone-strict" suffix for self-contained, strict validation.
 	DefaultK8sSchemaFlavour = "-standalone-strict"
+
+	// DefaultCRDSchemaRegistry is the url to fetch crd schmas from.
+	DefaultCRDSchemaRegistry = "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main"
 )
