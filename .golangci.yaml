@@ -1,0 +1,66 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - dupl
+    - goconst
+    - mnd
+    - lll
+    - revive
+    - gocritic
+    - prealloc
+    - testifylint
+    - gosec
+    - cyclop
+    - misspell
+    - nilerr
+    - testpackage
+    - thelper
+    - tparallel
+    - godot
+
+  settings:
+    govet:
+      enable:
+        - shadow
+
+    gocritic:
+      enabled-tags:
+        - performance
+        - style
+        - diagnostic
+
+    cyclop:
+      max-complexity: 10
+
+    misspell:
+      locale: US
+
+    gosec:
+      severity: medium
+      confidence: medium
+
+    testifylint:
+      enable-all: true
+
+    mnd:
+      ignored-numbers:
+        - "0"
+        - "1"
+        - "2"
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
