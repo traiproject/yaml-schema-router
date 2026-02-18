@@ -51,7 +51,7 @@ func (p *Proxy) processEditorToServer() {
 // to force the yaml-language-server to request a configuration pull.
 func (p *Proxy) triggerConfigurationPull() {
 	// A barebones payload is enough to trigger the pullConfiguration() flow
-	payload := []byte(`{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration"`)
+	payload := []byte(`{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration"}`)
 	p.forwardToServer(payload)
 }
 
