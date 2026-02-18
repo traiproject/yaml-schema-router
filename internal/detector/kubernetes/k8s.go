@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/goccy/go-yaml"
-	"go.trai.ch/k8s-yaml-router/internal/config"
-	"go.trai.ch/k8s-yaml-router/internal/detector"
+	"go.trai.ch/yaml-schema-router/internal/config"
+	"go.trai.ch/yaml-schema-router/internal/detector"
 )
 
 // k8sPeek is a minimal struct to extract only the necessary routing fields.
