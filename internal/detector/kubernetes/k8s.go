@@ -10,12 +10,6 @@ import (
 	"go.trai.ch/yaml-schema-router/internal/detector"
 )
 
-// k8sPeek is a minimal struct to extract only the necessary routing fields.
-type k8sPeek struct {
-	APIVersion string `yaml:"apiVersion"`
-	Kind       string `yaml:"kind"`
-}
-
 // K8sDetector implements the detector.Detector interface for Kubernetes manifests.
 type K8sDetector struct{}
 
@@ -72,9 +66,8 @@ func (d *K8sDetector) Detect(_ string, content []byte) (schemaURL string, detect
 }
 
 // extractTypeMeta scans the raw YAML content to quickly find the top-level
-// apiVersion and kind
-func extractTypeMeta(content []byte) (apiVersion string, kind string) {
-
+// apiVersion and kind.
+func extractTypeMeta(content []byte) (apiVersion, kind string) {
 	for line := range strings.SplitSeq(string(content), "\n") {
 		// Only check top-level keys (no leading spaces)
 		if after, ok := strings.CutPrefix(line, "apiVersion:"); ok {
