@@ -13,7 +13,7 @@ const (
 	// DefaultFilePerm represents standard file permissions (rw-rw-rw-).
 	DefaultFilePerm os.FileMode = 0o666
 
-	// DefaultConfigDirName is the folder name inside ~/.config/
+	// DefaultConfigDirName is the folder name inside ~/.config/.
 	DefaultConfigDirName = "yaml-schema-router"
 
 	// DefaultK8sSchemaRegistry is the url to fetch k8s schmeas from.
