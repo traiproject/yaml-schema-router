@@ -1,3 +1,4 @@
+// Package detector defines the core interface and evaluation chain for identifying file schemas.
 package detector
 
 // Detector defines the contract for all schema detectors.
@@ -19,17 +20,16 @@ func NewChain(detectors ...Detector) *Chain {
 }
 
 // Run iterates through the detectors until one successfully claims the file.
-func (c *Chain) Run(uri string, content []byte) (string, bool, error) {
+func (c *Chain) Run(uri string, content []byte) (schemaURL string, detected bool, err error) {
 	for _, d := range c.detectors {
-		schemaUrl, detected, err := d.Detect(uri, content)
-
+		schemaURL, detected, err := d.Detect(uri, content)
 		if err != nil {
 			// TODO: loggin
 			continue
 		}
 
 		if detected {
-			return schemaUrl, true, nil
+			return schemaURL, true, nil
 		}
 	}
 
