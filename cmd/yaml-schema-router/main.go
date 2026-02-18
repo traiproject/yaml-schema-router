@@ -38,6 +38,11 @@ func run() error {
 		"yaml-language-server",
 		"Path to the yaml-language-server executable. Defaults to checking the system PATH.",
 	)
+	_ = flag.Bool(
+		"stdio",
+		true,
+		"Ignored. Kept for compatibility with LSP clients that automatically append it.",
+	)
 	flag.Parse()
 
 	if *logFile != "" {
