@@ -1,10 +1,18 @@
 package lspproxy
 
+import "encoding/json"
+
 // --- Inbound from Editor ---
 
-// BaseRPC is a minimal struct used to peek at the method of an incoming LSP message.
+// BaseRPC represents a generic JSON-RPC 2.0 message, used for peeking at
+// incoming/outgoing LSP messages and selectively modifying them.
 type BaseRPC struct {
-	Method string `json:"method"`
+	JSONRPC string          `json:"jsonrpc"`
+	ID      any             `json:"id,omitempty"`
+	Method  string          `json:"method,omitempty"`
+	Params  json.RawMessage `json:"params,omitempty"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   json.RawMessage `json:"error,omitempty"`
 }
 
 // DidOpenNotification represents an incoming textDocument/didOpen LSP message.

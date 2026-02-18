@@ -144,27 +144,34 @@ func (p *Proxy) processEditorToServer() {
 		payload, err := readLSPMessage(reader)
 		if err != nil {
 			if err == io.EOF {
-				// The editor closed the connection (normal shutdown)
 				return
 			}
 			log.Fatalf("Fatal error reading header from editor: %v", err)
 		}
 
-		var rpc BaseRPC
-		if err := json.Unmarshal(payload, &rpc); err != nil {
-			log.Printf("Warning: Failed to parse JSON-RPC method: %v", err)
+		var msg BaseRPC
+		if err := json.Unmarshal(payload, &msg); err != nil {
+			p.forwardToServer(payload)
+			continue
 		}
 
-		switch rpc.Method {
-		case "textDocument/didOpen":
-			p.handleDidOpen(payload)
+		if msg.Method != "" {
+			switch msg.Method {
+			case "textDocument/didOpen":
+				p.handleDidOpen(payload)
+			case "textDocument/didChange":
+				p.handleDidChange(payload)
+			}
 			p.forwardToServer(payload)
-		case "textDocument/didChange":
-			p.handleDidChange(payload)
-			p.forwardToServer(payload)
-		default:
-			p.forwardToServer(payload)
+			continue
 		}
+
+		// Intercept Helix's responses to `workspace/configuration`
+		if msg.ID != nil && len(msg.Result) > 0 {
+			payload = p.interceptWorkspaceConfiguration(msg, payload)
+		}
+
+		p.forwardToServer(payload)
 	}
 }
 
@@ -198,6 +205,50 @@ func (p *Proxy) processServerToEditor() {
 			return
 		}
 	}
+}
+
+// interceptWorkspaceConfiguration dynamically injects schema configurations
+// into the editor's response to the language server.
+func (p *Proxy) interceptWorkspaceConfiguration(msg BaseRPC, payload []byte) []byte {
+	var result []any
+	if err := json.Unmarshal(msg.Result, &result); err != nil || len(result) == 0 {
+		return payload
+	}
+
+	// The first item in the array is the "yaml" section requested by the server
+	yamlConfig, ok := result[0].(map[string]any)
+	if !ok {
+		return payload
+	}
+
+	p.stateMutex.RLock()
+	groupedSchemas := make(map[string][]string)
+	for uri, schemaURL := range p.schemaState {
+		groupedSchemas[schemaURL] = append(groupedSchemas[schemaURL], uri)
+	}
+	p.stateMutex.RUnlock()
+
+	// If no schemas are detected yet, return unmodified payload
+	if len(groupedSchemas) == 0 {
+		return payload
+	}
+
+	// Inject our schemas into Helix's response
+	yamlConfig["schemas"] = groupedSchemas
+	result[0] = yamlConfig
+
+	newResult, err := json.Marshal(result)
+	if err != nil {
+		return payload
+	}
+	msg.Result = newResult
+
+	modifiedPayload, err := json.Marshal(msg)
+	if err != nil {
+		return payload
+	}
+
+	return modifiedPayload
 }
 
 // forwardToServer cleanly re-serializes the header and sends the exact payload to the language server.
@@ -306,13 +357,13 @@ func (p *Proxy) forceFullSync(payload []byte) []byte {
 		return payload
 	}
 
-	var msg map[string]any
-	if err := json.Unmarshal(payload, &msg); err != nil {
+	var msg BaseRPC
+	if err := json.Unmarshal(payload, &msg); err != nil || len(msg.Result) == 0 {
 		return payload
 	}
 
-	result, ok := msg["result"].(map[string]any)
-	if !ok {
+	var result map[string]any
+	if err := json.Unmarshal(msg.Result, &result); err != nil {
 		return payload
 	}
 
@@ -323,13 +374,16 @@ func (p *Proxy) forceFullSync(payload []byte) []byte {
 
 	if _, exists := capabilities["textDocumentSync"]; exists {
 		capabilities["textDocumentSync"] = 1
+		result["capabilities"] = capabilities
 
-		newPayload, err := json.Marshal(msg)
-		if err == nil {
-			log.Println("Successfully intercepted 'initialize' and forced textDocumentSync to Full (1)")
-			return newPayload
+		if newResult, resultErr := json.Marshal(result); resultErr == nil {
+			msg.Result = newResult
+			if newPayload, msgErr := json.Marshal(msg); msgErr == nil {
+				log.Println("Successfully intercepted 'initialize' and forced textDocumentSync to Full (1)")
+				return newPayload
+			}
+			log.Printf("Warning: failed to re-marshal modified capabilities: %v", resultErr)
 		}
-		log.Printf("Warning: failed to re-marshal modified capabilities: %v", err)
 	}
 
 	return payload
