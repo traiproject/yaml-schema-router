@@ -27,28 +27,9 @@ func (p *Proxy) interceptWorkspaceConfiguration(msg *BaseRPC, payload []byte) []
 		return payload
 	}
 
-	modified := false
+	modified := injectFeatureDefaults(yamlConfig)
 
-	featureDefaults := map[string]bool{
-		"hover":      config.DefaultHover,
-		"completion": config.DefaultCompletion,
-		"validation": config.DefaultValidation,
-	}
-
-	// Inject defaults only if the key does not already exist in the user's config.
-	for key, defaultValue := range featureDefaults {
-		if _, exists := yamlConfig[key]; !exists {
-			yamlConfig[key] = defaultValue
-			modified = true
-		}
-	}
-
-	p.stateMutex.RLock()
-	groupedSchemas := make(map[string][]string)
-	for uri, schemaURL := range p.schemaState {
-		groupedSchemas[schemaURL] = append(groupedSchemas[schemaURL], uri)
-	}
-	p.stateMutex.RUnlock()
+	groupedSchemas := p.getGroupedSchemas()
 
 	// If no schemas are detected yet, return unmodified payload
 	if len(groupedSchemas) == 0 {
@@ -80,6 +61,34 @@ func (p *Proxy) interceptWorkspaceConfiguration(msg *BaseRPC, payload []byte) []
 	}
 
 	return modifiedPayload
+}
+
+func injectFeatureDefaults(yamlConfig map[string]any) bool {
+	modified := false
+	featureDefaults := map[string]bool{
+		"hover":      config.DefaultHover,
+		"completion": config.DefaultCompletion,
+		"validation": config.DefaultValidation,
+	}
+
+	// Inject defaults only if the key does not already exist in the user's config.
+	for key, defaultValue := range featureDefaults {
+		if _, exists := yamlConfig[key]; !exists {
+			yamlConfig[key] = defaultValue
+			modified = true
+		}
+	}
+	return modified
+}
+
+func (p *Proxy) getGroupedSchemas() map[string][]string {
+	p.stateMutex.RLock()
+	defer p.stateMutex.RUnlock()
+	groupedSchemas := make(map[string][]string)
+	for uri, schemaURL := range p.schemaState {
+		groupedSchemas[schemaURL] = append(groupedSchemas[schemaURL], uri)
+	}
+	return groupedSchemas
 }
 
 // forceFullSync intercepts the 'initialize' response from the language server
