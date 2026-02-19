@@ -77,10 +77,10 @@ executable instead of `yaml-language-server`.
 
 The router accepts the following flags to customize its behavior:
 
-| Flag         | Description                                                                                                                    | Default                                   |
-| :----------- | :----------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------- |
-| `--lsp-path` | Path to the underlying `yaml-language-server` executable. Use this if the server is not in your systems PATH.                  | `yaml-language-server`                    |
-| `--log-file` | Path to a file where logs should be written. **Note:** Since the router communicates via Stdio, logs cannot be sent to stdout. | `~/.config/yaml-schema-router/router.log` |
+| Flag         | Description                                                                                                                    | Default                                                                                                                                                                  |
+| :----------- | :----------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--lsp-path` | Path to the underlying `yaml-language-server` executable. Use this if the server is not in your systems PATH.                  | `yaml-language-server`                                                                                                                                                   |
+| `--log-file` | Path to a file where logs should be written. **Note:** Since the router communicates via Stdio, logs cannot be sent to stdout. | `~/.cache/yaml-schema-router/router.log` (Linux)<br>`~/Library/Caches/yaml-schema-router/router.log` (macOS)<br>`%LocalAppData%\yaml-schema-router\router.log` (Windows) |
 
 ### Example Editor Configuration (Helix)
 
