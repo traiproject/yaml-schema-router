@@ -27,30 +27,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Install Nix
-        if: runner.os != 'Windows'
-        uses: cachix/install-nix-action@v31
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-
       - uses: actions/setup-go@v6
-        if: runner.os == 'Windows'
         with:
           go-version-file: "go.mod"
-
-      - name: Validate Nix flake configuration
-        if: runner.os != 'Windows'
-        run: nix flake check
+          cache: true
 
       - name: Run golangci-lint
-        run: nix develop -c golangci-lint run ./...
+        run: golangci-lint run ./...
+
+      - name: Build
+        run: go build -v ./cmd/yaml-schema-router
 
       - name: Run tests with race detection and cover profile
-        run: nix develop -c  go test -v -race -coverprofile=coverage.txt ./...
-
-      - name: Build binary with Nix
-        if: runner.os != 'Windows'
-        run: nix build
+        run: go test -v -race -coverprofile=coverage.txt ./...
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
