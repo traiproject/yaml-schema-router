@@ -73,6 +73,20 @@ communication between the editor and the LSP (`yaml-language-server`):
 Configure your editor to use `yaml-schema-router` as the language server
 executable instead of `yaml-language-server`.
 
+### Default Behavior
+
+By default, the proxy automatically sets the following `yaml` configurations to
+`true` if they are not explicitly defined in your editor's configuration:
+
+- `hover`
+- `completion`
+- `validation`
+
+> [!IMPORTANT]
+> If you wish to disable any of these features, you must explicitly set them to
+> `false` in your editor's LSP settings. Whatever reason you might have for
+> doing so.
+
 ### Command Line Flags
 
 The router accepts the following flags to customize its behavior:
@@ -97,6 +111,12 @@ args = [
   "--log-file", "/tmp/yaml-router.log",
   "--lsp-path", "/usr/bin/yaml-language-server"
 ]
+
+# Explicitly override the proxy defaults
+[language-server.yaml-schema-router.config.yaml]
+hover = false
+completion = false
+validation = false
 ```
 
 ## Compatibility

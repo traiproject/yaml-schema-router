@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"strings"
+
+	"go.trai.ch/yaml-schema-router/internal/config"
 )
 
 // interceptWorkspaceConfiguration dynamically injects schema configurations
@@ -14,10 +16,31 @@ func (p *Proxy) interceptWorkspaceConfiguration(msg *BaseRPC, payload []byte) []
 		return payload
 	}
 
+	// Ensure we have a map to work with, even if the editor returned null.
+	if result[0] == nil {
+		result[0] = make(map[string]any)
+	}
+
 	// The first item in the array is the "yaml" section requested by the server
 	yamlConfig, ok := result[0].(map[string]any)
 	if !ok {
 		return payload
+	}
+
+	modified := false
+
+	featureDefaults := map[string]bool{
+		"hover":      config.DefaultHover,
+		"completion": config.DefaultCompletion,
+		"validation": config.DefaultValidation,
+	}
+
+	// Inject defaults only if the key does not already exist in the user's config.
+	for key, defaultValue := range featureDefaults {
+		if _, exists := yamlConfig[key]; !exists {
+			yamlConfig[key] = defaultValue
+			modified = true
+		}
 	}
 
 	p.stateMutex.RLock()
@@ -30,6 +53,10 @@ func (p *Proxy) interceptWorkspaceConfiguration(msg *BaseRPC, payload []byte) []
 	// If no schemas are detected yet, return unmodified payload
 	if len(groupedSchemas) == 0 {
 		log.Printf("[%s] Intercepted workspace/configuration, but no schemas detected to inject.", componentName)
+		modified = true
+	}
+
+	if !modified {
 		return payload
 	}
 

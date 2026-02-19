@@ -32,6 +32,15 @@ const (
 	// DefaultK8sMetaSchemaFileName is the filename of the Kubernetes ObjectMeta schema.
 	DefaultK8sMetaSchemaFileName = "objectmeta-meta-v1.json"
 
+	// DefaultHover determines if hover support is enabled by default.
+	DefaultHover = true
+
+	// DefaultCompletion determines if completion support is enabled by default.
+	DefaultCompletion = true
+
+	// DefaultValidation determines if validation support is enabled by default.
+	DefaultValidation = true
+
 	// DefaultDownloaderTimeout is the maximum duration allowed for schema downloads.
 	DefaultDownloaderTimeout = 2 * time.Second
 )
