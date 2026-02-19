@@ -29,8 +29,11 @@ func (p *Proxy) interceptWorkspaceConfiguration(msg *BaseRPC, payload []byte) []
 
 	// If no schemas are detected yet, return unmodified payload
 	if len(groupedSchemas) == 0 {
+		log.Printf("[%s] Intercepted workspace/configuration, but no schemas detected to inject.", componentName)
 		return payload
 	}
+
+	log.Printf("[%s] Injecting schemas into workspace/configuration: %v", componentName, groupedSchemas)
 
 	// Inject our schemas into Helix's response
 	yamlConfig["schemas"] = groupedSchemas
@@ -38,12 +41,14 @@ func (p *Proxy) interceptWorkspaceConfiguration(msg *BaseRPC, payload []byte) []
 
 	newResult, err := json.Marshal(result)
 	if err != nil {
+		log.Printf("[%s] Error re-marshaling configuration result: %v", componentName, err)
 		return payload
 	}
 	msg.Result = newResult
 
 	modifiedPayload, err := json.Marshal(msg)
 	if err != nil {
+		log.Printf("[%s] Error re-marshaling configuration payload: %v", componentName, err)
 		return payload
 	}
 
@@ -82,10 +87,10 @@ func (p *Proxy) forceFullSync(payload []byte) []byte {
 		if newResult, resultErr := json.Marshal(result); resultErr == nil {
 			msg.Result = newResult
 			if newPayload, msgErr := json.Marshal(msg); msgErr == nil {
-				log.Println("Successfully intercepted 'initialize' and forced textDocumentSync to Full (1)")
+				log.Printf("[%s] Successfully intercepted 'initialize' and forced textDocumentSync to Full (1)", componentName)
 				return newPayload
 			}
-			log.Printf("Warning: failed to re-marshal modified capabilities: %v", resultErr)
+			log.Printf("[%s] Warning: failed to re-marshal modified capabilities: %v", componentName, resultErr)
 		}
 	}
 

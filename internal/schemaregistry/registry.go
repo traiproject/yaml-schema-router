@@ -2,11 +2,14 @@ package schemaregistry
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
 	"go.trai.ch/yaml-schema-router/internal/config"
 )
+
+const componentName = "Registry"
 
 // Registry manages a persistent disk cache for JSON schemas.
 type Registry struct {
@@ -35,8 +38,11 @@ func (r *Registry) GetSchemaURI(remoteURL, cachePath string) (string, error) {
 
 	// Fast path: check if file already exists in cache
 	if _, err := os.Stat(fullPath); err == nil {
+		log.Printf("[%s] Cache hit: %s", componentName, cachePath)
 		return fmt.Sprintf("file://%s", fullPath), nil
 	}
+
+	log.Printf("[%s] Cache miss: %s. Downloading from %s ...", componentName, cachePath, remoteURL)
 
 	// Cache miss: download the schema
 	data, err := download(remoteURL)
@@ -44,6 +50,8 @@ func (r *Registry) GetSchemaURI(remoteURL, cachePath string) (string, error) {
 		// Return the error instead of falling back blindly
 		return "", fmt.Errorf("failed to download %s: %w", remoteURL, err)
 	}
+
+	log.Printf("[%s] Download successful. Saving to %s", componentName, fullPath)
 
 	// Save to cache
 	if err := r.SaveLocalSchema(cachePath, data); err != nil {

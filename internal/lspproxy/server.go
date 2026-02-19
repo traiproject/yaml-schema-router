@@ -20,7 +20,7 @@ func (p *Proxy) processServerToEditor() {
 				// The server closed the connection
 				return
 			}
-			log.Fatalf("Fatal error reading header from server: %v", err)
+			log.Fatalf("[%s] Fatal error reading header from server: %v", componentName, err)
 		}
 
 		// Intercept and optionally rewrite the payload
@@ -28,12 +28,12 @@ func (p *Proxy) processServerToEditor() {
 
 		header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(modifiedPayload))
 		if _, err := p.editorOut.Write([]byte(header)); err != nil {
-			log.Printf("Error writing header to editor: %v", err)
+			log.Printf("[%s] Error writing header to editor: %v", componentName, err)
 			return
 		}
 
 		if _, err := p.editorOut.Write(modifiedPayload); err != nil {
-			log.Printf("Error writing payload to editor: %v", err)
+			log.Printf("[%s] Error writing payload to editor: %v", componentName, err)
 			return
 		}
 	}

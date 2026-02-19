@@ -3,6 +3,7 @@
 package lspproxy
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +13,8 @@ import (
 
 	"go.trai.ch/yaml-schema-router/internal/detector"
 )
+
+const componentName = "Proxy"
 
 // Proxy manages the MITM connection between the Editor and the Language Server.
 type Proxy struct {
@@ -42,7 +45,7 @@ func NewProxy(lspPath string, chain *detector.Chain) *Proxy {
 }
 
 // Start launches the yaml-language-server and begins proxying traffic.
-func (p *Proxy) Start() error {
+func (p *Proxy) Start(ctx context.Context) error {
 	//nolint:gosec // lspPath is provided via a trusted command-line flag
 	p.serverCmd = exec.Command(p.lspPath, "--stdio")
 
@@ -64,7 +67,7 @@ func (p *Proxy) Start() error {
 		return fmt.Errorf("failed to start language server (%s): %w", p.lspPath, err)
 	}
 
-	log.Printf("Language server started (PID: %d)", p.serverCmd.Process.Pid)
+	log.Printf("[%s] Language server started (PID: %d)", componentName, p.serverCmd.Process.Pid)
 
 	var wg sync.WaitGroup
 
@@ -75,16 +78,33 @@ func (p *Proxy) Start() error {
 	wg.Go(func() {
 		defer func() {
 			if err := p.serverIn.Close(); err != nil {
-				log.Fatalf("failed to close the IO reader: %v", err)
+				log.Printf("[%s] failed to close the IO reader: %v", componentName, err)
 			}
 		}()
 
 		p.processEditorToServer()
 	})
 
-	err := p.serverCmd.Wait()
+	cmdDone := make(chan error, 1)
+	go func() {
+		cmdDone <- p.serverCmd.Wait()
+	}()
 
-	wg.Wait()
+	// Block until either the process exits OR we receive a shutdown signal
+	select {
+	case err := <-cmdDone:
+		// The language server exited on its own (or crashed)
+		return err
 
-	return err
+	case <-ctx.Done():
+		// The editor sent a signal (e.g., SIGTERM), so we shut down gracefully
+		log.Printf("[%s] Context canceled, stopping language server...", componentName)
+
+		// Kill the child process so we don't leave orphans
+		if p.serverCmd.Process != nil {
+			_ = p.serverCmd.Process.Kill()
+		}
+
+		return nil
+	}
 }

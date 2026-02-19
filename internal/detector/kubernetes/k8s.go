@@ -3,6 +3,7 @@ package kubernetes
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -35,8 +36,11 @@ func (d *K8sDetector) Detect(_ string, content []byte) (remoteSchemaURL string, 
 		return "", false, nil
 	}
 
+	log.Printf("[%s] Found apiVersion='%s', kind='%s'", d.Name(), apiVersion, kind)
+
 	// 1. Ignore the actual CustomResourceDefinition kind
 	if kind == "CustomResourceDefinition" {
+		log.Printf("[%s] Ignoring CustomResourceDefinition", d.Name())
 		return "", false, nil
 	}
 
@@ -50,6 +54,7 @@ func (d *K8sDetector) Detect(_ string, content []byte) (remoteSchemaURL string, 
 	// or end with "k8s.io" (e.g., "rbac.authorization.k8s.io").
 	// If the group contains a dot but doesn't end with k8s.io, it is a custom resource.
 	if strings.Contains(group, ".") && !strings.HasSuffix(group, "k8s.io") {
+		log.Printf("[%s] Ignoring Custom Resource (group: %s)", d.Name(), group)
 		return "", false, nil
 	}
 
@@ -68,6 +73,8 @@ func (d *K8sDetector) Detect(_ string, content []byte) (remoteSchemaURL string, 
 	if err != nil {
 		return "", false, err
 	}
+
+	log.Printf("[%s] Mapped to schema: %s", d.Name(), fileName)
 
 	cachePath := filepath.Join(d.Name(), versionDir, fileName)
 	localURI, err := d.Registry.GetSchemaURI(remoteSchemaURL, cachePath)

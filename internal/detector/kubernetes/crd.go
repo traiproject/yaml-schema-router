@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -58,14 +59,19 @@ func (d *CRDDetector) Detect(_ string, content []byte) (schemaURL string, detect
 		return "", false, nil
 	}
 
+	log.Printf("[%s] Detected Custom Resource: %s/%s", d.Name(), group, kind)
+
 	kindFormatted := strings.ToLower(kind)
 	fileName := fmt.Sprintf("%s_%s.json", kindFormatted, version)
 	wrapperCachePath := filepath.Join(CRDDetectorName, group, fmt.Sprintf("%s_%s_wrapper.json", kindFormatted, version))
 
 	// Fast path: if the wrapper already exists, we don't need to do anything
 	if _, statErr := os.Stat(d.Registry.GetLocalPath(wrapperCachePath)); statErr == nil {
+		log.Printf("[%s] Wrapper cache hit for %s", d.Name(), wrapperCachePath)
 		return d.Registry.GetLocalFileURI(wrapperCachePath), true, nil
 	}
+
+	log.Printf("[%s] Wrapper cache miss. Fetching dependencies...", d.Name())
 
 	localBaseCRDURI, localObjectMetaURI, err := d.fetchDependencies(group, fileName)
 	if err != nil {
@@ -118,6 +124,13 @@ func (d *CRDDetector) fetchDependencies(
 func (d *CRDDetector) generateAndSaveWrapper(
 	localBaseCRDURI, localObjectMetaURI, wrapperCachePath string,
 ) (string, error) {
+	log.Printf("[%s] Generating schema wrapper: %s + %s -> %s",
+		d.Name(),
+		localBaseCRDURI,
+		localObjectMetaURI,
+		wrapperCachePath,
+	)
+
 	wrapper := schemaWrapper{
 		AllOf: []any{
 			schemaRef{Ref: localBaseCRDURI},

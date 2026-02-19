@@ -1,12 +1,15 @@
-// Package main is the entry point for k8s-yaml-router.
+// Package main is the entry point for yaml-schema-router.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"go.trai.ch/yaml-schema-router/internal/config"
 	"go.trai.ch/yaml-schema-router/internal/detector"
@@ -15,13 +18,18 @@ import (
 	"go.trai.ch/yaml-schema-router/internal/schemaregistry"
 )
 
+const componentName = "Main"
+
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("Fatal error: %v", err)
+		log.Fatalf("[%s] Fatal error: %v", componentName, err)
 	}
 }
 
 func run() error {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	defaultLogPath := ""
 	homeDir, homeErr := os.UserHomeDir()
 	if homeErr == nil {
@@ -47,6 +55,8 @@ func run() error {
 	)
 	flag.Parse()
 
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+
 	if *logFile != "" {
 		logDir := filepath.Dir(*logFile)
 		if err := os.MkdirAll(logDir, config.DefaultDirPerm); err != nil {
@@ -59,7 +69,7 @@ func run() error {
 		}
 		defer func() {
 			if err := f.Close(); err != nil {
-				log.Printf("error closing file: %v", err)
+				log.Printf("[%s] error closing file: %v", componentName, err)
 			}
 		}()
 		log.SetOutput(f)
@@ -67,7 +77,7 @@ func run() error {
 		log.SetOutput(os.Stderr)
 	}
 
-	log.Printf("Starting yaml-schema-router. Using LSP executable: %s", *lspPath)
+	log.Printf("[%s] Starting yaml-schema-router. Using LSP executable: %s", componentName, *lspPath)
 
 	registry, err := schemaregistry.NewRegistry()
 	if err != nil {
@@ -80,11 +90,11 @@ func run() error {
 
 	proxy := lspproxy.NewProxy(*lspPath, chain)
 
-	if err := proxy.Start(); err != nil {
+	if err := proxy.Start(ctx); err != nil {
 		return err
 	}
 
-	log.Println("Proxy shut down cleanly.")
+	log.Printf("[%s] Proxy shut down cleanly.", componentName)
 
 	return nil
 }

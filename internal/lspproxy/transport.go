@@ -56,11 +56,11 @@ func (p *Proxy) forwardToServer(payload []byte) {
 	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(payload))
 
 	if _, err := p.serverIn.Write([]byte(header)); err != nil {
-		log.Printf("Error writing header to server: %v", err)
+		log.Printf("[%s] Error writing header to server: %v", componentName, err)
 		return
 	}
 
 	if _, err := p.serverIn.Write(payload); err != nil {
-		log.Printf("Error writing payload to server: %v", err)
+		log.Printf("[%s] Error writing payload to server: %v", componentName, err)
 	}
 }
