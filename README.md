@@ -141,6 +141,10 @@ schema associations) that this router is designed to replace.
   Services, etc.) to the correct schema for your version.
 - **CRD Support:** Automatically maps custom `apiVersion` and `kind` definitions
   to an internal Custom Resource Definition (CRD) schema registry.
+  - **Schema Wrapping:** For every detected CRD, the router dynamically
+    generates a **schema wrapper**. This injects standard Kubernetes
+    `ObjectMeta` validation (labels, annotations, etc.) into the third-party CRD
+    schema, providing a complete validation experience.
 
 ## Roadmap
 
