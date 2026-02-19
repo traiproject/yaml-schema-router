@@ -28,11 +28,18 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install Nix
+        if: runner.os != 'Windows'
         uses: cachix/install-nix-action@v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: actions/setup-go@v6
+        if: runner.os == 'Windows'
+        with:
+          go-version-file: "go.mod"
+
       - name: Validate Nix flake configuration
+        if: runner.os != 'Windows'
         run: nix flake check
 
       - name: Run golangci-lint
@@ -42,6 +49,7 @@ jobs:
         run: nix develop -c  go test -v -race -coverprofile=coverage.txt ./...
 
       - name: Build binary with Nix
+        if: runner.os != 'Windows'
         run: nix build
 
       - name: Upload coverage reports to Codecov
