@@ -27,7 +27,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v6
+      - name: Setup go
+        uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
           cache: true
@@ -36,7 +37,7 @@ jobs:
         run: go build -v ./cmd/yaml-schema-router
 
       - name: Run tests with race detection and cover profile
-        run: go test -v -race -coverprofile=coverage.txt ./...
+        run: go test -v -race "-coverprofile=coverage.txt" ./...
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
@@ -48,10 +49,15 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup go
+        uses: actions/setup-go@v6
         with:
-          go-version: stable
+          go-version-file: "go.mod"
+          cache: true
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
