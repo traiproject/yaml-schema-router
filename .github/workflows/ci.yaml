@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   test-and-build:
-    name: Test, Lint & Build (${{ matrix.os }})
+    name: Test & Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
 
@@ -46,3 +46,37 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.txt,./coverage-e2e.txt
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.6
+
+  nix-check:
+    name: Nix Flake Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check Flake Metadata
+        run: nix flake check
+
+      - name: Verify DevShell
+        run: nix develop --command go version
+
+      - name: Nix Format Check
+        run: nix fmt -- --check .
