@@ -1,0 +1,54 @@
+version: 2
+
+project_name: yaml-schema-router
+
+builds:
+  - id: yaml-schema-router
+    main: ./cmd/yaml-schema-router
+    binary: yaml-schema-router
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+
+archives:
+  - formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- if eq .Os "darwin" }}macOS{{ else }}{{ .Os }}{{ end }}_
+      {{- if eq .Arch "amd64" }}x86_64{{ else }}{{ .Arch }}{{ end }}
+    files:
+      - README*
+      - LICENSE*
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--bundle=${signature}", "${artifact}", "--yes"]
+
+changelog:
+  use: github
+  filters:
+    exclude:
+      - "^ci:"
+      - "^test:"
+
+release:
+  draft: true
+  replace_existing_draft: true
+  prerelease: auto
