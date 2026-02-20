@@ -29,6 +29,9 @@
             gci
             gofumpt
 
+            ttyd
+            vhs
+
             nixfmt-tree
             nixfmt
             nixd
