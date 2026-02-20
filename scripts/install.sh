@@ -59,7 +59,11 @@ rm -rf "${TMP_DIR}"
 
 echo ""
 echo "Successfully installed ${PROJECT_NAME} ${VERSION} to ${INSTALL_DIR}!"
-if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-    echo "Note: ${INSTALL_DIR} is not in your PATH."
-    echo "Please add 'export PATH=\$PATH:${INSTALL_DIR}' to your ~/.bashrc or ~/.zshrc."
-fi
+
+case ":$PATH:" in
+    *":$INSTALL_DIR:"*) ;;
+    *) 
+        echo "Note: ${INSTALL_DIR} is not in your PATH."
+        echo "Please add 'export PATH=\$PATH:${INSTALL_DIR}' to your ~/.profile, ~/.bashrc, or ~/.zshrc."
+        ;;
+esac
