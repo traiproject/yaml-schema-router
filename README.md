@@ -1,5 +1,9 @@
 # YAML Schema Router (yaml-schema-router)
 
+[![GitHub Release](https://img.shields.io/github/v/release/traiproject/yaml-schema-router)](https://github.com/traiproject/yaml-schema-router/releases/latest)
+[![CI](https://github.com/traiproject/yaml-schema-router/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/traiproject/yaml-schema-router/actions/workflows/ci.yaml)
+[![Go Report Card](https://goreportcard.com/badge/go.trai.ch/yaml-schema-router)](https://goreportcard.com/report/go.trai.ch/yaml-schema-router)
+
 ## The Problem
 
 When using the
