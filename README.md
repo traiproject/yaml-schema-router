@@ -148,14 +148,5 @@ schema associations) that this router is designed to replace.
 
 ## Roadmap
 
-We are actively working on adding detectors for the following formats:
-
-- [ ] **Config File Support** (Replace flags with a persistent configuration
+- [ ] **Config File Support** (Define flags and internal defaults with a persistent configuration
       file)
-- [ ] **GitHub Workflows** (detecting files inside `.github/workflows`)
-- [ ] **GitLab CI/CD** (detecting `gitlab-ci.yml` syntax)
-- [ ] **Docker Compose** (detecting `services`, `version`, `networks` roots)
-- [ ] **Ansible Playbooks/Roles**
-- [ ] **Helm Charts** (`Chart.yaml` and `values.yaml`)
-- [ ] **OpenAPI/Swagger**
-- [ ] **AsyncAPI**
