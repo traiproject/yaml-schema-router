@@ -72,6 +72,59 @@ communication between the editor and the LSP (`yaml-language-server`):
 - **No Modeline Clutter:** Keeps your files clean by eliminating the need for
   `# yaml-language-server: $schema=...` comments.
 
+## Installation
+
+You can install `yaml-schema-router` using our automated installation scripts, manually downloading the binary, or compiling it from source via Go.
+
+### macOS & Linux
+
+You can easily install the latest release by running the following command in your terminal. This script will detect your OS and architecture, download the correct binary, and place it in `~/.local/bin` (or `/usr/local/bin` if run as root).
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/traiproject/yaml-schema-router/refs/heads/main/scripts/install.sh | sudo sh
+```
+
+or without sudo
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/traiproject/yaml-schema-router/refs/heads/main/scripts/install.sh | sh
+```
+
+> [!IMPORTANT]
+> If the script is ran without sudo ensure the installation directory is added to your system's `PATH`.
+
+### Windows
+
+Open **PowerShell** and run the following command to download and extract the latest release into your user profile (`%LOCALAPPDATA%\yaml-schema-router`):
+
+```powershell
+irm https://raw.githubusercontent.com/traiproject/yaml-schema-router/refs/heads/main/scripts/install.ps1 | iex
+```
+
+**Troubleshooting "Execution of scripts is disabled":**
+If Windows blocks the script from running, you need to temporarily bypass your execution policy. Run this command first, then try the installation command again:
+
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force
+```
+
+### Manual Installation (All Platforms)
+
+If you prefer not to use the automated scripts, you can download the pre-compiled binaries directly:
+
+1. Visit the [GitHub Releases page](https://github.com/traiproject/yaml-schema-router/releases/latest).
+2. Download the `.tar.gz` archive for your operating system and architecture (e.g., `linux_x86_64`, `macOS_arm64`, `windows_x86_64`).
+3. Extract the archive.
+4. Move the `yaml-schema-router` executable to a directory included in your system's `PATH`.
+
+### From Source (Go)
+
+If you have Go 1.22+ installed, you can build and install the tool directly from source:
+
+```bash
+go install go.trai.ch/yaml-schema-router/cmd/yaml-schema-router@latest
+```
+
 ## Usage
 
 Configure your editor to use `yaml-schema-router` as the language server
