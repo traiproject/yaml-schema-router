@@ -161,6 +161,19 @@ By default, the proxy automatically sets the following `yaml` configurations to
 > `false` in your editor's LSP settings. Whatever reason you might have for
 > doing so.
 
+### Manual Schema Override (Bypassing the Router)
+
+While `yaml-schema-router` is designed to eliminate the need for manual schema annotations, there might be cases where you want to force a specific schema for a single file. 
+
+If you add a standard schema modeline comment to the top of your YAML file (within the first 10 lines), the router will automatically detect it and step out of the way:
+
+```yaml
+# yaml-language-server: $schema=[https://json.schemastore.org/github-workflow.json](https://json.schemastore.org/github-workflow.json)
+name: My Custom Workflow
+```
+
+When this annotation is present, the router will stop attempting to dynamically inject schemas for that file, allowing the underlying `yaml-language-server` to handle the manual annotation natively. If you remove the comment later, the router will seamlessly take over again.
+
 ### Command Line Flags
 
 The router accepts the following flags to customize its behavior:
