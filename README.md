@@ -4,6 +4,11 @@
 [![CI](https://github.com/traiproject/yaml-schema-router/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/traiproject/yaml-schema-router/actions/workflows/ci.yaml)
 [![Go Report Card](https://goreportcard.com/badge/go.trai.ch/yaml-schema-router)](https://goreportcard.com/report/go.trai.ch/yaml-schema-router)
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/df4a6614-e290-45af-a960-59e795df14e2" width="500" alt="With Router" />
+   <img src="https://github.com/user-attachments/assets/97492853-da8b-476b-a51e-8088c14024d5" width="500" alt="Without Router" />
+</p>
+
 ## The Problem
 
 When using the
