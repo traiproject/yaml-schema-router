@@ -168,7 +168,7 @@ While `yaml-schema-router` is designed to eliminate the need for manual schema a
 If you add a standard schema modeline comment to the top of your YAML file (within the first 10 lines), the router will automatically detect it and step out of the way:
 
 ```yaml
-# yaml-language-server: $schema=[https://json.schemastore.org/github-workflow.json](https://json.schemastore.org/github-workflow.json)
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: My Custom Workflow
 ```
 
