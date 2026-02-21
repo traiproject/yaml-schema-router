@@ -83,6 +83,11 @@ func (p *Proxy) handleDidOpen(payload []byte) {
 
 	log.Printf("[%s] Processing file: %s", componentDidOpen, uri)
 
+	if p.hasSchemaAnnotation(text) {
+		log.Printf("[%s] Manual schema annotation detected for %s. Bypassing router.", componentDidOpen, uri)
+		return
+	}
+
 	schemaURL, detected, err := p.detectorChain.Run(uri, []byte(text))
 	if err != nil {
 		log.Printf("[%s] Error running detectors: %v", componentDidOpen, err)
@@ -116,6 +121,20 @@ func (p *Proxy) handleDidChange(payload []byte) {
 
 	uri := notif.Params.TextDocument.URI
 	text := notif.Params.ContentChanges[0].Text
+
+	if p.hasSchemaAnnotation(text) {
+		p.stateMutex.Lock()
+		if _, exists := p.schemaState[uri]; exists {
+			log.Printf("[%s] Manual schema annotation added to %s. Removing from router state.", componentDidChange, uri)
+			delete(p.schemaState, uri)
+			p.stateMutex.Unlock()
+
+			p.triggerConfigurationPull()
+		} else {
+			p.stateMutex.Unlock()
+		}
+		return
+	}
 
 	schemaURL, detected, err := p.detectorChain.Run(uri, []byte(text))
 	if err != nil || !detected {

@@ -8,6 +8,20 @@ import (
 	"go.trai.ch/yaml-schema-router/internal/config"
 )
 
+// hasSchemaAnnotation checks if the provided text contains a manual schema
+// annotation (e.g., `# yaml-language-server: $schema=`) in the first few lines.
+func (p *Proxy) hasSchemaAnnotation(text string) bool {
+	lines := strings.SplitN(text, "\n", 10)
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Check if the line is exactly the modeline format
+		if strings.HasPrefix(trimmed, "# yaml-language-server: $schema=") {
+			return true
+		}
+	}
+	return false
+}
+
 // interceptWorkspaceConfiguration dynamically injects schema configurations
 // into the editor's response to the language server.
 func (p *Proxy) interceptWorkspaceConfiguration(msg *BaseRPC, payload []byte) []byte {
