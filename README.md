@@ -206,6 +206,15 @@ completion = false
 validation = false
 ```
 
+## Network & Firewall Configuration
+
+For transparency and to assist with strict firewall or proxy rules, `yaml-schema-router` fetches its JSON schemas from the following public registries by default:
+
+* **Standard Kubernetes Schemas:** `https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master`
+* **Custom Resource Definitions (CRDs):** `https://raw.githubusercontent.com/datreeio/CRDs-catalog/main`
+
+The router requires outbound HTTPS (port 443) access to `raw.githubusercontent.com` to download schemas during their first use. Because the router utilizes a local schema registry, these network requests are only made once per schema. Once a schema is cached locally, no further network requests are made for that specific version, allowing for completely offline development.
+
 ## Compatibility
 
 This tool is designed to wrap the
