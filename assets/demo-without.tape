@@ -1,6 +1,6 @@
-Output demo-without.mp4
+Output demo-without.gif
 
-Set BorderRadius 25
+Set BorderRadius 0
 Set WindowBar Colorful
 
 Set FontSize 16
