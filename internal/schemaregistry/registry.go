@@ -128,7 +128,7 @@ func (r *Registry) GenerateCompositeSchema(schemaURIs []string) (string, error) 
 	}
 
 	// Build the wrapper
-	var anyOf []map[string]string
+	anyOf := make([]map[string]string, 0, len(uniqueURIs))
 	for _, uri := range uniqueURIs {
 		anyOf = append(anyOf, map[string]string{"$ref": uri})
 	}

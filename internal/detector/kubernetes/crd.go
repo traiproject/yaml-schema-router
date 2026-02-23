@@ -53,7 +53,7 @@ func (d *CRDDetector) Detect(_ string, content []byte) ([]string, error) {
 		return nil, nil
 	}
 
-	var schemaURLs []string
+	schemaURLs := make([]string, 0, len(metas))
 
 	for _, meta := range metas {
 		group, version, found := strings.Cut(meta.APIVersion, "/")
