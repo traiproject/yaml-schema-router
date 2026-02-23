@@ -28,12 +28,13 @@ func (d *K8sDetector) Name() string {
 	return K8sDetectorName
 }
 
-type TypeMeta struct {
+type typeMeta struct {
 	APIVersion string
 	Kind       string
 }
 
-// Detect inspects the YAML content for all Kubernetes apiVersion and kind pairs to construct the appropriate schema URLs.
+// Detect inspects the YAML content for all Kubernetes apiVersion and kind pairs
+// to construct the appropriate schema URLs.
 func (d *K8sDetector) Detect(_ string, content []byte) ([]string, error) {
 	metas := extractAllTypeMeta(content)
 	if len(metas) == 0 {
@@ -43,72 +44,78 @@ func (d *K8sDetector) Detect(_ string, content []byte) ([]string, error) {
 	var schemaURLs []string
 
 	for _, meta := range metas {
-		log.Printf("[%s] Found apiVersion='%s', kind='%s'", d.Name(), meta.APIVersion, meta.Kind)
-
-		if meta.Kind == "CustomResourceDefinition" {
-			log.Printf("[%s] Ignoring CustomResourceDefinition", d.Name())
-			continue
+		if schemaURL := d.resolveSchemaURL(meta); schemaURL != "" {
+			schemaURLs = append(schemaURLs, schemaURL)
 		}
-
-		group := meta.APIVersion
-		version := ""
-		if strings.Contains(group, "/") {
-			parts := strings.Split(group, "/")
-			group = parts[0]
-			version = parts[1]
-		}
-
-		// If the group contains a dot but doesn't end with k8s.io, it is a custom resource.
-		if strings.Contains(group, ".") && !strings.HasSuffix(group, "k8s.io") {
-			log.Printf("[%s] Ignoring Custom Resource (group: %s)", d.Name(), group)
-			continue
-		}
-
-		// Standardize the API group name for the schema registry by stripping the domain
-		// e.g., "rbac.authorization.k8s.io" -> "rbac", "networking.k8s.io" -> "networking"
-		formattedGroup := group
-		if strings.Contains(formattedGroup, ".") && strings.HasSuffix(formattedGroup, "k8s.io") {
-			formattedGroup = strings.Split(formattedGroup, ".")[0]
-		}
-
-		var apiVersionFormatted string
-		if version != "" {
-			apiVersionFormatted = fmt.Sprintf("%s-%s", formattedGroup, version)
-		} else {
-			apiVersionFormatted = formattedGroup // For core groups like "v1"
-		}
-
-		kindFormatted := strings.ToLower(meta.Kind)
-		fileName := fmt.Sprintf("%s-%s.json", kindFormatted, apiVersionFormatted)
-		versionDir := fmt.Sprintf("%s%s", config.DefaultK8sSchemaVersion, config.DefaultK8sSchemaFlavour)
-
-		remoteSchemaURL, err := url.JoinPath(
-			config.DefaultK8sSchemaRegistry,
-			versionDir,
-			fileName,
-		)
-		if err != nil {
-			log.Printf("[%s] Failed to build URL for %s: %v", d.Name(), meta.Kind, err)
-			continue
-		}
-
-		cachePath := filepath.Join(d.Name(), versionDir, fileName)
-		localURI, err := d.Registry.GetSchemaURI(remoteSchemaURL, cachePath)
-		if err != nil {
-			log.Printf("[%s] Failed to fetch schema for %s: %v", d.Name(), meta.Kind, err)
-			continue
-		}
-
-		schemaURLs = append(schemaURLs, localURI)
 	}
 
 	return schemaURLs, nil
 }
 
+func (d *K8sDetector) resolveSchemaURL(meta typeMeta) string {
+	log.Printf("[%s] Found apiVersion='%s', kind='%s'", d.Name(), meta.APIVersion, meta.Kind)
+
+	if meta.Kind == "CustomResourceDefinition" {
+		log.Printf("[%s] Ignoring CustomResourceDefinition", d.Name())
+		return ""
+	}
+
+	group := meta.APIVersion
+	version := ""
+	if strings.Contains(group, "/") {
+		parts := strings.Split(group, "/")
+		group = parts[0]
+		version = parts[1]
+	}
+
+	// If the group contains a dot but doesn't end with k8s.io, it is a custom resource.
+	if strings.Contains(group, ".") && !strings.HasSuffix(group, "k8s.io") {
+		log.Printf("[%s] Ignoring Custom Resource (group: %s)", d.Name(), group)
+		return ""
+	}
+
+	// Standardize the API group name for the schema registry by stripping the domain
+	// e.g., "rbac.authorization.k8s.io" -> "rbac", "networking.k8s.io" -> "networking"
+	formattedGroup := group
+	if strings.Contains(formattedGroup, ".") && strings.HasSuffix(formattedGroup, "k8s.io") {
+		formattedGroup = strings.Split(formattedGroup, ".")[0]
+	}
+
+	var apiVersionFormatted string
+	if version != "" {
+		apiVersionFormatted = fmt.Sprintf("%s-%s", formattedGroup, version)
+	} else {
+		apiVersionFormatted = formattedGroup // For core groups like "v1"
+	}
+
+	kindFormatted := strings.ToLower(meta.Kind)
+	fileName := fmt.Sprintf("%s-%s.json", kindFormatted, apiVersionFormatted)
+	versionDir := fmt.Sprintf("%s%s", config.DefaultK8sSchemaVersion, config.DefaultK8sSchemaFlavour)
+
+	remoteSchemaURL, err := url.JoinPath(
+		config.DefaultK8sSchemaRegistry,
+		versionDir,
+		fileName,
+	)
+	if err != nil {
+		log.Printf("[%s] Failed to build URL for %s: %v", d.Name(), meta.Kind, err)
+		return ""
+	}
+
+	cachePath := filepath.Join(d.Name(), versionDir, fileName)
+	localURI, err := d.Registry.GetSchemaURI(remoteSchemaURL, cachePath)
+	if err != nil {
+		log.Printf("[%s] Failed to fetch schema for %s: %v", d.Name(), meta.Kind, err)
+		return ""
+	}
+
+	return localURI
+}
+
 // extractAllTypeMeta splits the raw YAML content by document separators
 // and extracts the apiVersion and kind for each segment.
-func extractAllTypeMeta(content []byte) []TypeMeta {
-	var metas []TypeMeta
+func extractAllTypeMeta(content []byte) []typeMeta {
+	var metas []typeMeta
 	docs := strings.SplitSeq(string(content), "---")
 
 	for doc := range docs {
@@ -129,7 +136,7 @@ func extractAllTypeMeta(content []byte) []TypeMeta {
 		}
 
 		if apiVersion != "" && kind != "" {
-			metas = append(metas, TypeMeta{APIVersion: apiVersion, Kind: kind})
+			metas = append(metas, typeMeta{APIVersion: apiVersion, Kind: kind})
 		}
 	}
 

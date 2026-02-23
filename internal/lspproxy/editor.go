@@ -3,6 +3,7 @@ package lspproxy
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"strings"
@@ -130,30 +131,12 @@ func (p *Proxy) handleDidChange(payload []byte) {
 	text := notif.Params.ContentChanges[0].Text
 
 	if p.hasSchemaAnnotation(text) {
-		p.stateMutex.Lock()
-		if _, exists := p.schemaState[uri]; exists {
-			log.Printf("[%s] Manual schema annotation added to %s. Removing from router state.", componentDidChange, uri)
-			delete(p.schemaState, uri)
-			p.stateMutex.Unlock()
-
-			p.triggerConfigurationPull()
-		} else {
-			p.stateMutex.Unlock()
-		}
+		p.clearSchemaState(uri, fmt.Sprintf("Manual schema annotation added to %s", uri))
 		return
 	}
 
-	if len(strings.TrimSpace(text)) == 0 {
-		p.stateMutex.Lock()
-		if _, exists := p.schemaState[uri]; exists {
-			log.Printf("[%s] File content cleared for %s. Removing from router state.", componentDidChange, uri)
-			delete(p.schemaState, uri)
-			p.stateMutex.Unlock()
-
-			p.triggerConfigurationPull()
-		} else {
-			p.stateMutex.Unlock()
-		}
+	if strings.TrimSpace(text) == "" {
+		p.clearSchemaState(uri, fmt.Sprintf("File content cleared for %s", uri))
 		return
 	}
 
@@ -175,11 +158,28 @@ func (p *Proxy) handleDidChange(payload []byte) {
 		return
 	}
 
+	p.updateSchemaState(uri, finalSchemaURL)
+}
+
+func (p *Proxy) clearSchemaState(uri, reason string) {
+	p.stateMutex.Lock()
+	if _, exists := p.schemaState[uri]; exists {
+		log.Printf("[%s] %s. Removing from router state.", componentDidChange, reason)
+		delete(p.schemaState, uri)
+		p.stateMutex.Unlock()
+
+		p.triggerConfigurationPull()
+	} else {
+		p.stateMutex.Unlock()
+	}
+}
+
+func (p *Proxy) updateSchemaState(uri, newSchemaURL string) {
 	p.stateMutex.Lock()
 	// Only trigger a configuration pull if the schema actually changed
-	if p.schemaState[uri] != finalSchemaURL {
-		log.Printf("[%s] Schema changed for %s! New: %s", componentDidChange, uri, finalSchemaURL)
-		p.schemaState[uri] = finalSchemaURL
+	if p.schemaState[uri] != newSchemaURL {
+		log.Printf("[%s] Schema changed for %s! New: %s", componentDidChange, uri, newSchemaURL)
+		p.schemaState[uri] = newSchemaURL
 		p.stateMutex.Unlock()
 
 		p.triggerConfigurationPull()
