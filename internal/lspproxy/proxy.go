@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"go.trai.ch/yaml-schema-router/internal/detector"
+	"go.trai.ch/yaml-schema-router/internal/schemaregistry"
 )
 
 const componentName = "Proxy"
@@ -27,6 +28,7 @@ type Proxy struct {
 
 	lspPath       string
 	detectorChain *detector.Chain
+	registry      *schemaregistry.Registry
 
 	// schemaState tracks URI -> applied Schema URL to prevent redundant updates
 	schemaState map[string]string
@@ -34,12 +36,13 @@ type Proxy struct {
 }
 
 // NewProxy initializes the structs and prepares the subprocess.
-func NewProxy(lspPath string, chain *detector.Chain) *Proxy {
+func NewProxy(lspPath string, chain *detector.Chain, registry *schemaregistry.Registry) *Proxy {
 	return &Proxy{
 		editorIn:      os.Stdin,
 		editorOut:     os.Stdout,
 		lspPath:       lspPath,
 		detectorChain: chain,
+		registry:      registry,
 		schemaState:   make(map[string]string),
 	}
 }

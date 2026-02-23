@@ -45,46 +45,54 @@ func (d *CRDDetector) Name() string {
 	return CRDDetectorName
 }
 
-// Detect inspects the YAML content for an apiVersion containing a custom group
-// and constructs a wrapped JSON schema that includes standard ObjectMeta.
-func (d *CRDDetector) Detect(_ string, content []byte) (schemaURL string, detected bool, err error) {
-	apiVersion, kind := extractTypeMeta(content)
-
-	if apiVersion == "" || kind == "" {
-		return "", false, nil
+// Detect inspects the YAML content for apiVersions containing custom groups
+// and constructs wrapped JSON schemas that include standard ObjectMeta.
+func (d *CRDDetector) Detect(_ string, content []byte) ([]string, error) {
+	metas := extractAllTypeMeta(content)
+	if len(metas) == 0 {
+		return nil, nil
 	}
 
-	group, version, found := strings.Cut(apiVersion, "/")
-	if !found || (!strings.Contains(group, ".") || strings.HasSuffix(group, "k8s.io")) {
-		return "", false, nil
+	var schemaURLs []string
+
+	for _, meta := range metas {
+		group, version, found := strings.Cut(meta.APIVersion, "/")
+		if !found || (!strings.Contains(group, ".") || strings.HasSuffix(group, "k8s.io")) {
+			continue // Not a CRD, let the builtin detector handle it
+		}
+
+		log.Printf("[%s] Detected Custom Resource: %s/%s", d.Name(), group, meta.Kind)
+
+		kindFormatted := strings.ToLower(meta.Kind)
+		fileName := fmt.Sprintf("%s_%s.json", kindFormatted, version)
+		wrapperCachePath := filepath.Join(CRDDetectorName, group, fmt.Sprintf("%s_%s_wrapper.json", kindFormatted, version))
+
+		// Fast path: if the wrapper already exists, we don't need to do anything
+		if _, statErr := os.Stat(d.Registry.GetLocalPath(wrapperCachePath)); statErr == nil {
+			log.Printf("[%s] Wrapper cache hit for %s", d.Name(), wrapperCachePath)
+			schemaURLs = append(schemaURLs, d.Registry.GetLocalFileURI(wrapperCachePath))
+			continue
+		}
+
+		log.Printf("[%s] Wrapper cache miss. Fetching dependencies...", d.Name())
+
+		localBaseCRDURI, localObjectMetaURI, err := d.fetchDependencies(group, fileName)
+		if err != nil {
+			log.Printf("[%s] Failed to fetch dependencies for CRD %s: %v", d.Name(), meta.Kind, err)
+			continue
+		}
+
+		// Generate and save the wrapper schema
+		fileURI, err := d.generateAndSaveWrapper(localBaseCRDURI, localObjectMetaURI, wrapperCachePath)
+		if err != nil {
+			log.Printf("[%s] Failed to generate wrapper for CRD %s: %v", d.Name(), meta.Kind, err)
+			continue
+		}
+
+		schemaURLs = append(schemaURLs, fileURI)
 	}
 
-	log.Printf("[%s] Detected Custom Resource: %s/%s", d.Name(), group, kind)
-
-	kindFormatted := strings.ToLower(kind)
-	fileName := fmt.Sprintf("%s_%s.json", kindFormatted, version)
-	wrapperCachePath := filepath.Join(CRDDetectorName, group, fmt.Sprintf("%s_%s_wrapper.json", kindFormatted, version))
-
-	// Fast path: if the wrapper already exists, we don't need to do anything
-	if _, statErr := os.Stat(d.Registry.GetLocalPath(wrapperCachePath)); statErr == nil {
-		log.Printf("[%s] Wrapper cache hit for %s", d.Name(), wrapperCachePath)
-		return d.Registry.GetLocalFileURI(wrapperCachePath), true, nil
-	}
-
-	log.Printf("[%s] Wrapper cache miss. Fetching dependencies...", d.Name())
-
-	localBaseCRDURI, localObjectMetaURI, err := d.fetchDependencies(group, fileName)
-	if err != nil {
-		return "", false, err
-	}
-
-	// Generate and save the wrapper schema
-	fileURI, err := d.generateAndSaveWrapper(localBaseCRDURI, localObjectMetaURI, wrapperCachePath)
-	if err != nil {
-		return "", false, err
-	}
-
-	return fileURI, true, nil
+	return schemaURLs, nil
 }
 
 func (d *CRDDetector) fetchDependencies(

@@ -6,7 +6,7 @@ import "log"
 // Detector defines the contract for all schema detectors.
 type Detector interface {
 	Name() string
-	Detect(uri string, content []byte) (schemaURL string, detected bool, err error)
+	Detect(uri string, content []byte) (schemaURLs []string, err error)
 }
 
 // Chain manages a sequence of Detectors.
@@ -21,20 +21,21 @@ func NewChain(detectors ...Detector) *Chain {
 	}
 }
 
-// Run iterates through the detectors until one successfully claims the file.
-func (c *Chain) Run(uri string, content []byte) (schemaURL string, detected bool, err error) {
+// Run iterates through all detectors and aggregates every claimed file schema.
+func (c *Chain) Run(uri string, content []byte) (schemaURLs []string, err error) {
+	var allURLs []string
+
 	for _, d := range c.detectors {
-		schemaURL, detected, err := d.Detect(uri, content)
+		urls, err := d.Detect(uri, content)
 		if err != nil {
 			log.Printf("[%s] Error during detection: %v", d.Name(), err)
 			continue
 		}
 
-		if detected {
-			return schemaURL, true, nil
+		if len(urls) > 0 {
+			allURLs = append(allURLs, urls...)
 		}
 	}
 
-	// No detector claimed this file.
-	return "", false, nil
+	return allURLs, nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"strings"
 )
 
 const (
@@ -88,21 +89,27 @@ func (p *Proxy) handleDidOpen(payload []byte) {
 		return
 	}
 
-	schemaURL, detected, err := p.detectorChain.Run(uri, []byte(text))
+	schemaURLs, err := p.detectorChain.Run(uri, []byte(text))
 	if err != nil {
 		log.Printf("[%s] Error running detectors: %v", componentDidOpen, err)
 		return
 	}
 
-	if !detected {
+	if len(schemaURLs) == 0 {
 		log.Printf("[%s] No schema detected for %s", componentDidOpen, uri)
 		return
 	}
 
-	log.Printf("[%s] MATCH! Mapping %s -> %s", componentDidOpen, uri, schemaURL)
+	finalSchemaURL, err := p.registry.GenerateCompositeSchema(schemaURLs)
+	if err != nil {
+		log.Printf("[%s] Error generating composite schema: %v", componentDidOpen, err)
+		return
+	}
+
+	log.Printf("[%s] MATCH! Mapping %s -> %s", componentDidOpen, uri, finalSchemaURL)
 
 	p.stateMutex.Lock()
-	p.schemaState[uri] = schemaURL
+	p.schemaState[uri] = finalSchemaURL
 	p.stateMutex.Unlock()
 
 	p.triggerConfigurationPull()
@@ -136,18 +143,43 @@ func (p *Proxy) handleDidChange(payload []byte) {
 		return
 	}
 
-	schemaURL, detected, err := p.detectorChain.Run(uri, []byte(text))
-	if err != nil || !detected {
+	if len(strings.TrimSpace(text)) == 0 {
+		p.stateMutex.Lock()
+		if _, exists := p.schemaState[uri]; exists {
+			log.Printf("[%s] File content cleared for %s. Removing from router state.", componentDidChange, uri)
+			delete(p.schemaState, uri)
+			p.stateMutex.Unlock()
+
+			p.triggerConfigurationPull()
+		} else {
+			p.stateMutex.Unlock()
+		}
+		return
+	}
+
+	schemaURLs, err := p.detectorChain.Run(uri, []byte(text))
+	if err != nil {
+		log.Printf("[%s] Error running detectors: %v", componentDidChange, err)
+		return
+	}
+
+	if len(schemaURLs) == 0 {
 		// TODO: If we lose detection (e.g. user deletes the apiVersion line), strictly we might want to
 		// remove it from state, but for now we just return.
 		return
 	}
 
+	finalSchemaURL, err := p.registry.GenerateCompositeSchema(schemaURLs)
+	if err != nil {
+		log.Printf("[%s] Error generating composite schema: %v", componentDidChange, err)
+		return
+	}
+
 	p.stateMutex.Lock()
 	// Only trigger a configuration pull if the schema actually changed
-	if p.schemaState[uri] != schemaURL {
-		log.Printf("[%s] Schema changed for %s! New: %s", componentDidChange, uri, schemaURL)
-		p.schemaState[uri] = schemaURL
+	if p.schemaState[uri] != finalSchemaURL {
+		log.Printf("[%s] Schema changed for %s! New: %s", componentDidChange, uri, finalSchemaURL)
+		p.schemaState[uri] = finalSchemaURL
 		p.stateMutex.Unlock()
 
 		p.triggerConfigurationPull()

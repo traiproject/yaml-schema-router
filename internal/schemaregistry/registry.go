@@ -1,10 +1,14 @@
 package schemaregistry
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"go.trai.ch/yaml-schema-router/internal/config"
 )
@@ -14,6 +18,10 @@ const componentName = "Registry"
 // Registry manages a persistent disk cache for JSON schemas.
 type Registry struct {
 	baseDir string
+}
+
+type compositeSchema struct {
+	AnyOf []map[string]string `json:"anyOf"`
 }
 
 // NewRegistry initializes the user's cache directory.
@@ -82,4 +90,59 @@ func (r *Registry) SaveLocalSchema(cachePath string, data []byte) error {
 func (r *Registry) GetLocalFileURI(cachePath string) string {
 	fullPath := filepath.Join(r.baseDir, cachePath)
 	return fmt.Sprintf("file://%s", fullPath)
+}
+
+// GenerateCompositeSchema creates a single schema using 'anyOf' to aggregate multiple schemas.
+func (r *Registry) GenerateCompositeSchema(schemaURIs []string) (string, error) {
+	if len(schemaURIs) == 0 {
+		return "", nil
+	}
+	// Fast path: if there is only one manifest, just return its schema directly.
+	if len(schemaURIs) == 1 {
+		return schemaURIs[0], nil
+	}
+
+	// Deduplicate and sort URIs to ensure a deterministic hash for identical documents
+	uriMap := make(map[string]bool)
+	var uniqueURIs []string
+	for _, uri := range schemaURIs {
+		if !uriMap[uri] {
+			uriMap[uri] = true
+			uniqueURIs = append(uniqueURIs, uri)
+		}
+	}
+	sort.Strings(uniqueURIs)
+
+	// Hash the sorted URIs
+	hash := sha256.New()
+	for _, uri := range uniqueURIs {
+		hash.Write([]byte(uri))
+	}
+	hashStr := hex.EncodeToString(hash.Sum(nil))[:16]
+
+	cachePath := filepath.Join("composite", fmt.Sprintf("composite_%s.json", hashStr))
+
+	// Fast path: check if this exact composite combination already exists
+	if _, err := os.Stat(r.GetLocalPath(cachePath)); err == nil {
+		return r.GetLocalFileURI(cachePath), nil
+	}
+
+	// Build the wrapper
+	var anyOf []map[string]string
+	for _, uri := range uniqueURIs {
+		anyOf = append(anyOf, map[string]string{"$ref": uri})
+	}
+
+	composite := compositeSchema{AnyOf: anyOf}
+	data, err := json.MarshalIndent(composite, "", "  ")
+	if err != nil {
+		return "", err
+	}
+
+	// Save the dynamically generated wrapper to disk
+	if err := r.SaveLocalSchema(cachePath, data); err != nil {
+		return "", err
+	}
+
+	return r.GetLocalFileURI(cachePath), nil
 }

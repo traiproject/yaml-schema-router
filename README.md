@@ -80,6 +80,14 @@ communication between the editor and the LSP (`yaml-language-server`):
   that supports standard LSP configuration.
 - **Smart Detection:** Identifies files based on their actual content or
   directory location rather than just their extension.
+- **Multi-Document Support:** Seamlessly handles files containing multiple YAML
+  manifests (separated by `---`). The router detects all resources within the
+  single file and dynamically generates a composite schema (using `anyOf`) to
+  validate every manifest simultaneously.
+- **Dynamic State Management:** Intelligently tracks file changes in real-time.
+  If you completely empty a file, the router automatically detaches its
+  associated schema. Otherwise, the existing schema remains actively cached
+  until overwritten by a new recognized `apiVersion` and `kind`.
 - **Local Schema Registry:** Built-in registry automatically downloads and
   caches schemas to your disk.
   - **Offline Development:** Once a schema is fetched, it is available forever,
@@ -91,11 +99,15 @@ communication between the editor and the LSP (`yaml-language-server`):
 
 ## Installation
 
-You can install `yaml-schema-router` using our automated installation scripts, manually downloading the binary, or compiling it from source via Go.
+You can install `yaml-schema-router` using our automated installation scripts,
+manually downloading the binary, or compiling it from source via Go.
 
 ### macOS & Linux
 
-You can easily install the latest release by running the following command in your terminal. This script will detect your OS and architecture, download the correct binary, and place it in `~/.local/bin` (or `/usr/local/bin` if run as root).
+You can easily install the latest release by running the following command in
+your terminal. This script will detect your OS and architecture, download the
+correct binary, and place it in `~/.local/bin` (or `/usr/local/bin` if run as
+root).
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/traiproject/yaml-schema-router/refs/heads/main/scripts/install.sh | sudo sh
@@ -108,18 +120,21 @@ curl -fsSL https://raw.githubusercontent.com/traiproject/yaml-schema-router/refs
 ```
 
 > [!IMPORTANT]
-> If the script is ran without sudo ensure the installation directory is added to your system's `PATH`.
+> If the script is ran without sudo ensure the installation directory is added
+> to your system's `PATH`.
 
 ### Windows
 
-Open **PowerShell** and run the following command to download and extract the latest release into your user profile (`%LOCALAPPDATA%\yaml-schema-router`):
+Open **PowerShell** and run the following command to download and extract the
+latest release into your user profile (`%LOCALAPPDATA%\yaml-schema-router`):
 
 ```powershell
 irm https://raw.githubusercontent.com/traiproject/yaml-schema-router/refs/heads/main/scripts/install.ps1 | iex
 ```
 
-**Troubleshooting "Execution of scripts is disabled":**
-If Windows blocks the script from running, you need to temporarily bypass your execution policy. Run this command first, then try the installation command again:
+**Troubleshooting "Execution of scripts is disabled":** If Windows blocks the
+script from running, you need to temporarily bypass your execution policy. Run
+this command first, then try the installation command again:
 
 ```powershell
 Set-ExecutionPolicy Bypass -Scope Process -Force
@@ -127,16 +142,21 @@ Set-ExecutionPolicy Bypass -Scope Process -Force
 
 ### Manual Installation (All Platforms)
 
-If you prefer not to use the automated scripts, you can download the pre-compiled binaries directly:
+If you prefer not to use the automated scripts, you can download the
+pre-compiled binaries directly:
 
-1. Visit the [GitHub Releases page](https://github.com/traiproject/yaml-schema-router/releases/latest).
-2. Download the `.tar.gz` archive for your operating system and architecture (e.g., `linux_x86_64`, `macOS_arm64`, `windows_x86_64`).
+1. Visit the
+   [GitHub Releases page](https://github.com/traiproject/yaml-schema-router/releases/latest).
+2. Download the `.tar.gz` archive for your operating system and architecture
+   (e.g., `linux_x86_64`, `macOS_arm64`, `windows_x86_64`).
 3. Extract the archive.
-4. Move the `yaml-schema-router` executable to a directory included in your system's `PATH`.
+4. Move the `yaml-schema-router` executable to a directory included in your
+   system's `PATH`.
 
 ### From Source (Go)
 
-If you have Go 1.22+ installed, you can build and install the tool directly from source:
+If you have Go 1.22+ installed, you can build and install the tool directly from
+source:
 
 ```bash
 go install go.trai.ch/yaml-schema-router/cmd/yaml-schema-router@latest
@@ -163,16 +183,23 @@ By default, the proxy automatically sets the following `yaml` configurations to
 
 ### Manual Schema Override (Bypassing the Router)
 
-While `yaml-schema-router` is designed to eliminate the need for manual schema annotations, there might be cases where you want to force a specific schema for a single file. 
+While `yaml-schema-router` is designed to eliminate the need for manual schema
+annotations, there might be cases where you want to force a specific schema for
+a single file.
 
-If you add a standard schema modeline comment to the top of your YAML file (within the first 10 lines), the router will automatically detect it and step out of the way:
+If you add a standard schema modeline comment to the top of your YAML file
+(within the first 10 lines), the router will automatically detect it and step
+out of the way:
 
 ```yaml
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: My Custom Workflow
 ```
 
-When this annotation is present, the router will stop attempting to dynamically inject schemas for that file, allowing the underlying `yaml-language-server` to handle the manual annotation natively. If you remove the comment later, the router will seamlessly take over again.
+When this annotation is present, the router will stop attempting to dynamically
+inject schemas for that file, allowing the underlying `yaml-language-server` to
+handle the manual annotation natively. If you remove the comment later, the
+router will seamlessly take over again.
 
 ### Command Line Flags
 
@@ -208,12 +235,21 @@ validation = false
 
 ## Network & Firewall Configuration
 
-For transparency and to assist with strict firewall or proxy rules, `yaml-schema-router` fetches its JSON schemas from the following public registries by default:
+For transparency and to assist with strict firewall or proxy rules,
+`yaml-schema-router` fetches its JSON schemas from the following public
+registries by default:
 
-* **Standard Kubernetes Schemas:** `https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master`
-* **Custom Resource Definitions (CRDs):** `https://raw.githubusercontent.com/datreeio/CRDs-catalog/main`
+- **Standard Kubernetes Schemas:**
+  `https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master`
+- **Custom Resource Definitions (CRDs):**
+  `https://raw.githubusercontent.com/datreeio/CRDs-catalog/main`
 
-The router requires outbound HTTPS (port 443) access to `raw.githubusercontent.com` to download schemas during their first use. Because the router utilizes a local schema registry, these network requests are only made once per schema. Once a schema is cached locally, no further network requests are made for that specific version, allowing for completely offline development.
+The router requires outbound HTTPS (port 443) access to
+`raw.githubusercontent.com` to download schemas during their first use. Because
+the router utilizes a local schema registry, these network requests are only
+made once per schema. Once a schema is cached locally, no further network
+requests are made for that specific version, allowing for completely offline
+development.
 
 ## Compatibility
 
@@ -244,5 +280,5 @@ schema associations) that this router is designed to replace.
 
 ## Roadmap
 
-- [ ] **Config File Support** (Define flags and internal defaults with a persistent configuration
-      file)
+- [ ] **Config File Support** (Define flags and internal defaults with a
+      persistent configuration file)

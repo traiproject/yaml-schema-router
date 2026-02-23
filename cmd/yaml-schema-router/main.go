@@ -88,7 +88,7 @@ func run() error {
 	crdDetector := &kubernetes.CRDDetector{Registry: registry}
 	chain := detector.NewChain(k8sDetector, crdDetector)
 
-	proxy := lspproxy.NewProxy(*lspPath, chain)
+	proxy := lspproxy.NewProxy(*lspPath, chain, registry)
 
 	if err := proxy.Start(ctx); err != nil {
 		return err
