@@ -265,6 +265,15 @@ configuration setting, using a version **1.0+** ensures the best compatibility
 with modern LSP clients and disables legacy behaviors (like implicit Kubernetes
 schema associations) that this router is designed to replace.
 
+### Helm Language Server (`helm-ls`)
+
+`yaml-schema-router` can be used in conjunction with the Helm Language Server (`helm-ls`). Since `helm-ls` allows you to specify the executable for the `yaml-language-server` it delegates to, you can simply set this configuration to point to the `yaml-schema-router` binary instead.
+
+**Current Limitation:**
+Presently, there is no way to pass custom command-line flags (such as a custom `--lsp-path` for the underlying `yaml-language-server`) to `yaml-schema-router` directly through the `helm-ls` configuration. If your `yaml-language-server` is not available in your system's `PATH`, `yaml-schema-router` may fail to locate it. 
+
+This limitation will be resolved in the future once the planned global/project configuration file support is implemented (see the [Roadmap](#roadmap)).
+
 ## Supported Detectors
 
 ### Kubernetes & CRDs
