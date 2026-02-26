@@ -1,5 +1,5 @@
 {
-  description = "Development environment for GitOps";
+  description = "Development environment for Go";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -15,9 +15,7 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-        };
+        pkgs = import nixpkgs { inherit system; };
       in
       {
         devShells.default = pkgs.mkShell {
@@ -25,20 +23,15 @@
             go
             gopls
             delve
+            gotools
             golangci-lint
-            gci
             gofumpt
+            gci
 
             ttyd
             vhs
-
-            nixfmt-tree
-            nixfmt
-            nixd
           ];
         };
-
-        formatter = pkgs.nixfmt-rfc-style;
       }
     );
 }
