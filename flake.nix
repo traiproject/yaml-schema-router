@@ -31,6 +31,8 @@
             ttyd
             vhs
           ];
+
+          formatter = pkgs.nixfmt;
         };
       }
     );
